@@ -41,6 +41,17 @@ BarWidget {
     return -1
   }
 
+  // While "ready" (waiting for the user to continue into the next block)
+  // there's no countdown running yet, so show what starting now would run.
+  readonly property int readyDurationMs: {
+    if (!ready) return 0
+    if (pomo.readyNext === "break") {
+      var kind = Pomo.nextBreakKind(pomo.cyclesDone, cfg.longEvery)
+      return (kind === "long" ? cfg.longBreak : cfg.shortBreak) * 60000
+    }
+    return cfg.focus * 60000
+  }
+
   readonly property string barText: {
     if (!ready) return "󰔛"
     if (phase === "idle") return "󰔛"
@@ -203,7 +214,7 @@ BarWidget {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           text: root.phase === "idle" ? Pomo.mmss(root.cfg.focus * 60000)
-              : root.phase === "ready" ? "--:--"
+              : root.phase === "ready" ? Pomo.mmss(root.readyDurationMs)
               : root.clock
           color: root.paused ? Util.alpha(root.fg, 0.55) : root.fg
           font.family: root.bar.fontFamily

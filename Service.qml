@@ -244,17 +244,54 @@ Item {
 
   function syncDnd() {
     var svc = notificationService
-    if (!svc || typeof svc.setDoNotDisturb !== "function") return
+    if (svc && typeof svc.setDoNotDisturb === "function") {
+      if (dndWanted && !dndApplied) {
+        dndBefore = !!svc.doNotDisturb
+        svc.setDoNotDisturb(true)
+        dndApplied = true
+        persist()
+      } else if (!dndWanted && dndApplied) {
+        svc.setDoNotDisturb(dndBefore)
+        dndApplied = false
+        persist()
+      }
+      return
+    }
+
+    // Third-party plugins receive a capability-scoped shell where
+    // serviceFor("omarchy.notifications") is null. Fall back to omarchy-shell notifications IPC.
     if (dndWanted && !dndApplied) {
-      dndBefore = !!svc.doNotDisturb
-      svc.setDoNotDisturb(true)
       dndApplied = true
       persist()
+      if (!dndQueryProc.running) dndQueryProc.running = true
     } else if (!dndWanted && dndApplied) {
-      svc.setDoNotDisturb(dndBefore)
       dndApplied = false
       persist()
+      setDndIpc(dndBefore)
     }
+  }
+
+  function setDndIpc(on) {
+    dndSetProc.command = ["omarchy-shell", "notifications", "setDnd", on ? "true" : "false"]
+    if (dndSetProc.running) dndSetProc.running = false
+    dndSetProc.running = true
+  }
+
+  Process {
+    id: dndQueryProc
+    command: ["omarchy-shell", "notifications", "isDnd"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.dndBefore = String(text || "").trim() === "on"
+        root.persist()
+        root.setDndIpc(true)
+      }
+    }
+  }
+
+  Process {
+    id: dndSetProc
   }
 
   // The notifications service may come up after us; keep trying while the

@@ -32,9 +32,9 @@ var BREAK_TIPS = [
   "Walk to a window."
 ]
 
-function findEntry(shellConfig, id) {
-  if (!shellConfig) return null
-  var layout = shellConfig.bar && shellConfig.bar.layout
+function findEntry(source, id) {
+  if (!source) return null
+  var layout = (source.bar && source.bar.layout) || source.layout
   if (layout) {
     for (var section in layout) {
       var list = layout[section]
@@ -44,7 +44,7 @@ function findEntry(shellConfig, id) {
       }
     }
   }
-  var plugins = shellConfig.plugins
+  var plugins = source.plugins
   if (Array.isArray(plugins)) {
     for (var j = 0; j < plugins.length; j++) {
       if (plugins[j] && plugins[j].id === id) return plugins[j]
