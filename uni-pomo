@@ -19,11 +19,12 @@
 #   uni-pomo get <key>           read a setting
 #   uni-pomo set <key> <value>   write a setting (focus, shortBreak, longBreak,
 #                                longEvery, dnd, overlay, sound, notify,
-#                                autoStartBreak, autoStartFocus, overlayDim, presets)
+#                                autoStartBreak, autoStartFocus, overlayDim, presets,
+#                                pauseOnIdle, idleAfter)
 #   uni-pomo settings            print all settings
 
 set -euo pipefail
-CFG="$HOME/.config/omarchy/shell.json"
+CFG="${UNI_POMO_CONFIG:-$HOME/.config/omarchy/shell.json}"
 ID="techywilbur.pomodoro"
 
 ipc() { omarchy-shell pomodoro "$@"; }
@@ -37,7 +38,7 @@ entry_path() {
 get_setting() {
   local p; p=$(entry_path)
   [[ -n $p ]] || { echo "plugin entry not found in $CFG" >&2; exit 1; }
-  jq -r --argjson p "$p" --arg k "$1" 'getpath($p)[$k] // empty' "$CFG"
+  jq -r --argjson p "$p" --arg k "$1" 'getpath($p)[$k] | if . == null then empty else . end' "$CFG"
 }
 
 set_setting() {
