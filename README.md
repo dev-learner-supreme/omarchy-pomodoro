@@ -194,10 +194,15 @@ locks after idle (`idle.lock` in `shell.json`, 300 s by default), so a lock
 that follows idle pauses the timer as long as `idleAfter` is not longer than
 that lock timeout.
 
-If the shell was away for a while (suspend, a frozen session), a block that
-ended more than 2 minutes before the shell noticed still counts as finished,
-but the next step waits for you ("Focus complete" or "Break over" with a
-Start button) instead of starting a full-length countdown from now.
+Sleep does not count. While a block runs, the timer checks the clock every
+half second. If a tick arrives more than 10 seconds late (lid closed and
+suspended, or a frozen shell), the missing time is added back to the block's
+end, so it resumes with the time it had left and nothing chimes on wake-up.
+This applies to focus blocks and breaks. A shell restart is different: the
+state file keeps the end time, so a block that ended while the shell was not
+running (more than 2 minutes ago) still counts as finished, but the next step
+waits for you ("Focus complete" or "Break over" with a Start button) instead of
+starting a full-length countdown from now.
 
 ## IPC
 
@@ -216,8 +221,8 @@ omarchy-shell shell toggle techywilbur.pomodoro   # open / close the popup
   absolute end time, the set counter and today's stats, and draws the optional
   break screen on every monitor. `BarWidget.qml` (one per monitor) renders the bar
   label and the popup. `PomoModel.js` is the pure logic.
-- Time is stored as a wall-clock end, so a block keeps counting correctly
-  through suspend and shell restarts. State is written to
+- Time is stored as a wall-clock end, so a block keeps its place through shell
+  restarts; time asleep is added back to the end (see "Sleep does not count"). State is written to
   `~/.local/state/uni-pomo/state.json` on every transition (atomically, via a
   temp file and rename). It is read back only through the bundled
   `pomo-state-read` helper, which opens the directory and file with

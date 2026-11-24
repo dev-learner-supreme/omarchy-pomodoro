@@ -5,7 +5,7 @@
   "version": "1.1.1",
   "author": "Wilbur Lindqvist (techywilbur)",
   "license": "MIT",
-  "description": "Pomodoro focus timer for the Omarchy bar: a countdown in the bar, a popup with transport controls, focus presets and break buttons, a desktop notification and chime when a block ends, Do Not Disturb while you focus, daily stats, and an optional full-screen break screen. Survives shell restarts and suspend.",
+  "description": "Pomodoro focus timer for the Omarchy bar: a countdown in the bar, a popup with transport controls, focus presets and break buttons, a desktop notification and chime when a block ends, Do Not Disturb while you focus, daily stats, and an optional full-screen break screen. Survives shell restarts, and time spent asleep is not counted.",
   "kinds": [
     "service",
     "bar-widget"

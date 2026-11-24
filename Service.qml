@@ -62,6 +62,12 @@ Item {
   // reported as done, but the next phase waits in "ready" instead of starting
   // a full-length countdown from now.
   readonly property int lateAfterMs: 2 * 60000
+  // A tick that arrives this much later than expected means the machine slept
+  // (lid closed) or the shell froze; that time is not counted against the block.
+  readonly property int tickMs: 500
+  readonly property int sleepGapMs: 10000
+  property real lastTickAt: 0
+  onRunningChanged: lastTickAt = 0
 
   readonly property bool active: phase === "focus" || Pomo.isBreak(phase)
   readonly property bool isBreak: Pomo.isBreak(phase)
@@ -83,7 +89,11 @@ Item {
 
   function tick() {
     if (!running) return
-    var left = endsAt - now()
+    // Time spent asleep does not count: push the end out by the gap.
+    var t = now()
+    endsAt += Pomo.sleepGap(lastTickAt, t, tickMs, sleepGapMs)
+    lastTickAt = t
+    var left = endsAt - t
     if (left <= 0) {
       remainingMs = 0
       complete(-left > lateAfterMs)
@@ -423,7 +433,7 @@ Item {
   }
 
   Timer {
-    interval: 500
+    interval: root.tickMs
     repeat: true
     running: root.running
     triggeredOnStart: true

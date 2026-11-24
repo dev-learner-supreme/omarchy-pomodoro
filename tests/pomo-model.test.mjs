@@ -345,3 +345,26 @@ test("parseState passes out-of-range values through; clamping is done by the cal
 test("parseState accepts an array because it is typeof object (documented quirk)", () => {
   assert.deepEqual(plain(Pomo.parseState("[1,2]")), [1, 2])
 })
+
+// ---------------------------------------------------------------- sleepGap
+
+test("sleepGap: normal tick is not a sleep", () => {
+  assert.equal(Pomo.sleepGap(1000, 1500, 500, 10000), 0)
+})
+
+test("sleepGap: exactly the threshold is not a sleep, one ms more is", () => {
+  assert.equal(Pomo.sleepGap(1000, 11000, 500, 10000), 0)
+  assert.equal(Pomo.sleepGap(1000, 11001, 500, 10000), 10001 - 500)
+})
+
+test("sleepGap: a long sleep returns the gap minus one normal tick", () => {
+  assert.equal(Pomo.sleepGap(0 + 1000, 1000 + 3600000, 500, 10000), 3600000 - 500)
+})
+
+test("sleepGap: no previous tick, clock going backwards, bad input give 0", () => {
+  assert.equal(Pomo.sleepGap(0, 99999, 500, 10000), 0)
+  assert.equal(Pomo.sleepGap(5000, 4000, 500, 10000), 0)
+  assert.equal(Pomo.sleepGap(5000, 5000, 500, 10000), 0)
+  assert.equal(Pomo.sleepGap(undefined, 5000, 500, 10000), 0)
+  assert.equal(Pomo.sleepGap(1000, NaN, 500, 10000), 0)
+})

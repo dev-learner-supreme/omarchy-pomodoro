@@ -147,6 +147,16 @@ function todaySummary(count, minutes) {
   return "today " + count + (count === 1 ? " session" : " sessions") + ", " + minutes + " min"
 }
 
+// Time the machine slept (or the shell froze) between two ticks, in ms, or 0.
+// Ticks come every tickMs; a gap bigger than thresholdMs means the clock ran
+// while nothing else did. A clock that went backwards or a missing previous
+// tick gives 0.
+function sleepGap(prevMs, nowMs, tickMs, thresholdMs) {
+  if (!(prevMs > 0) || !(nowMs > prevMs)) return 0
+  var gap = nowMs - prevMs
+  return gap > thresholdMs ? gap - tickMs : 0
+}
+
 function tipFor(index) {
   var i = Math.abs(Math.round(index)) % BREAK_TIPS.length
   return BREAK_TIPS[i]
