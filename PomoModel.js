@@ -9,12 +9,14 @@ var DEFAULTS = {
   longBreak: 15,
   longEvery: 4,         // long break after every Nth focus block
   dnd: true,            // silence notifications while focusing
-  overlay: true,        // full-screen break screen
+  overlay: false,       // full-screen break screen (optional; off by default)
   overlayDim: 0.93,     // scrim alpha of the break screen
   sound: true,
   notify: true,
   autoStartBreak: true, // focus done -> break starts by itself
   autoStartFocus: false,// break done -> wait for the user ("ready") instead of counting straight away
+  pauseOnIdle: true,    // pause a running focus block while you are idle; resume when back
+  idleAfter: 5,         // minutes without input before the focus block is paused
   presets: [15, 25, 50, 90],
   soundFocusEnd: "/usr/share/sounds/freedesktop/stereo/complete.oga",
   soundBreakEnd: "/usr/share/sounds/freedesktop/stereo/message.oga",
@@ -82,6 +84,8 @@ function config(entry) {
     notify: bool(e.notify, DEFAULTS.notify),
     autoStartBreak: bool(e.autoStartBreak, DEFAULTS.autoStartBreak),
     autoStartFocus: bool(e.autoStartFocus, DEFAULTS.autoStartFocus),
+    pauseOnIdle: bool(e.pauseOnIdle, DEFAULTS.pauseOnIdle),
+    idleAfter: Math.round(num(e.idleAfter, DEFAULTS.idleAfter, 1, 60)),
     presets: presets.length ? presets : DEFAULTS.presets.slice(),
     soundFocusEnd: e.soundFocusEnd ? String(e.soundFocusEnd) : DEFAULTS.soundFocusEnd,
     soundBreakEnd: e.soundBreakEnd ? String(e.soundBreakEnd) : DEFAULTS.soundBreakEnd,
@@ -135,6 +139,12 @@ function todayKey(date) {
   var m = d.getMonth() + 1
   var day = d.getDate()
   return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day
+}
+
+// "today 3 sessions, 75 min" for the tooltip; "" when nothing finished today.
+function todaySummary(count, minutes) {
+  if (!(count > 0)) return ""
+  return "today " + count + (count === 1 ? " session" : " sessions") + ", " + minutes + " min"
 }
 
 function tipFor(index) {

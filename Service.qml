@@ -37,7 +37,8 @@ Item {
   readonly property string stateReaderPath: sourceDir ? sourceDir + "/pomo-state-read" : ""
 
   // ---- configuration (inline on the widget's bar entry; hot-reloaded by the shell)
-  readonly property var entry: Pomo.findEntry(shell ? shell.shellConfig : null, pluginId)
+  // Third-party plugins get a scoped shell that has no shellConfig, only barConfig.
+  readonly property var entry: Pomo.findEntry(shell ? (shell.shellConfig || { bar: shell.barConfig }) : null, pluginId)
   readonly property var config: Pomo.config(entry)
 
   // ---- state
@@ -56,6 +57,11 @@ Item {
   property bool overlayDismissed: false
   property int tipIndex: 0
   property bool hydrated: false
+  property bool autoPaused: false      // paused by idle (not by the user); only this resumes on activity
+  // A block that ended this long before we noticed (suspend, long freeze) is
+  // reported as done, but the next phase waits in "ready" instead of starting
+  // a full-length countdown from now.
+  readonly property int lateAfterMs: 2 * 60000
 
   readonly property bool active: phase === "focus" || Pomo.isBreak(phase)
   readonly property bool isBreak: Pomo.isBreak(phase)
@@ -80,13 +86,14 @@ Item {
     var left = endsAt - now()
     if (left <= 0) {
       remainingMs = 0
-      complete()
+      complete(-left > lateAfterMs)
       return
     }
     remainingMs = left
   }
 
   function begin(nextPhase, minutes) {
+    autoPaused = false
     phase = nextPhase
     plannedMs = Math.max(1, minutes) * 60000
     remainingMs = plannedMs
@@ -109,6 +116,7 @@ Item {
   }
 
   function enterReady(next) {
+    autoPaused = false
     phase = "ready"
     readyNext = next === "break" ? "break" : "focus"
     running = false
@@ -119,7 +127,9 @@ Item {
     persist()
   }
 
-  function complete() {
+  // late: the block ended long ago (see lateAfterMs). It still counts as done,
+  // but the next phase is not started by itself.
+  function complete(late) {
     running = false
     if (phase === "focus") {
       bumpToday(plannedMs)
@@ -128,13 +138,13 @@ Item {
       var kind = Pomo.nextBreakKind(cyclesDone, config.longEvery)
       var mins = kind === "long" ? config.longBreak : config.shortBreak
       notify("Focus complete", (kind === "long" ? "Long break — " : "Break — ") + mins + " min", "󰅶")
-      if (config.autoStartBreak) startBreak(kind, 0)
+      if (config.autoStartBreak && !late) startBreak(kind, 0)
       else enterReady("break")
     } else if (isBreak) {
       if (phase === "long") cyclesDone = 0
       chime(config.soundBreakEnd)
       notify("Break over", "Next: " + config.focus + " min focus", "󰧐")
-      if (config.autoStartFocus) startFocus(0)
+      if (config.autoStartFocus && !late) startFocus(0)
       else enterReady("focus")
     } else {
       stop()
@@ -142,6 +152,7 @@ Item {
   }
 
   function pause() {
+    autoPaused = false
     if (!active || !running) return
     remainingMs = Math.max(0, endsAt - now())
     running = false
@@ -149,6 +160,7 @@ Item {
   }
 
   function resume() {
+    autoPaused = false
     if (!active || running) return
     endsAt = now() + remainingMs
     running = true
@@ -167,10 +179,11 @@ Item {
     toggle()
   }
 
+  // A skipped focus block is not a finished session: it does not count in
+  // cyclesDone or today's stats, and the break is picked from the current count.
   function skip() {
     if (phase === "focus") {
       running = false
-      cyclesDone += 1
       var kind = Pomo.nextBreakKind(cyclesDone, config.longEvery)
       if (config.autoStartBreak) startBreak(kind, 0)
       else enterReady("break")
@@ -183,6 +196,7 @@ Item {
   }
 
   function stop() {
+    autoPaused = false
     phase = "idle"
     readyNext = "focus"
     running = false
@@ -204,8 +218,36 @@ Item {
       remainingMs = Math.max(0, remainingMs + ms)
     }
     plannedMs = Math.max(plannedMs + ms, remainingMs, 60000)
-    if (running && remainingMs <= 0) { complete(); return }
+    if (running && remainingMs <= 0) { complete(false); return }
     persist()
+  }
+
+  // ------------------------------------------------------------------ idle pause
+
+  // Quickshell's IdleMonitor (ext-idle-notify) reports isIdle after `timeout`
+  // seconds without input. respectInhibitors keeps a playing video (an idle
+  // inhibitor) from counting as away. Omarchy's own idle service uses the same
+  // type the same way (plugins/services/idle/Service.qml).
+  IdleMonitor {
+    id: idleMonitor
+    enabled: root.config.pauseOnIdle
+    timeout: root.config.idleAfter * 60
+    respectInhibitors: true
+    onIsIdleChanged: isIdle ? root.autoPause() : root.autoResume()
+  }
+
+  // Only a focus block pauses by itself. Breaks keep running while you are away.
+  function autoPause() {
+    if (phase !== "focus" || !running) return
+    pause()
+    autoPaused = true
+  }
+
+  // Resume only what idle paused. A manual pause stays until the user resumes.
+  function autoResume() {
+    var wasAuto = autoPaused
+    autoPaused = false
+    if (wasAuto && phase === "focus" && !running) resume()
   }
 
   function dismissOverlay() { overlayDismissed = true }

@@ -36,18 +36,22 @@ BarWidget {
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property bool focusRunning: phase === "focus" && running
 
+  // Horizontal bar: just the clock while a block runs, the timer glyph when
+  // idle, a plain word when a block is waiting to start. Vertical bar: the icon.
   readonly property string barText: {
-    if (!ready) return "󰔛"
-    if (phase === "idle") return "󰔛"
-    if (phase === "ready") return icon + "  " + (pomo.readyNext === "break" ? "break?" : "focus?")
-    return icon + "  " + clock
+    if (!ready || phase === "idle") return "󰔛"
+    if (phase === "ready") return pomo.readyNext === "break" ? "break" : "focus"
+    return clock
   }
+
+  readonly property string todayText: ready ? Pomo.todaySummary(todayCount, todayMinutes) : ""
+  readonly property string todaySuffix: todayText ? " · " + todayText : ""
 
   readonly property string tooltip: {
     if (!ready) return "Pomodoro"
-    if (phase === "idle") return "Pomodoro — click for options, right-click to start " + cfg.focus + " min focus"
+    if (phase === "idle") return "Pomodoro — click for options, right-click to start " + cfg.focus + " min focus" + todaySuffix
     if (phase === "ready") return phaseLabel + " — right-click to continue"
-    return phaseLabel + (paused ? " (paused)" : "") + " · " + clock + " left · " + pomo.cyclesDone + "/" + cfg.longEvery + " this set"
+    return phaseLabel + (paused ? " (paused)" : "") + " · " + clock + " left · " + pomo.cyclesDone + "/" + cfg.longEvery + " this set" + todaySuffix
   }
 
   property bool popupOpen: false

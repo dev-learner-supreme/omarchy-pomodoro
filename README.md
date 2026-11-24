@@ -1,10 +1,11 @@
 # Pomodoro — focus timer for the Omarchy bar
 
 A pomodoro timer for the [Omarchy](https://omarchy.org) shell. A countdown sits
-in the bar next to the clock, a click opens the controls, and every break takes
-over the screen with a progress ring so you actually step away. Notifications
-are silenced while you focus, a chime marks the end of each block, and the timer
-survives shell restarts, theme switches and suspend.
+in the bar next to the clock, a click opens the controls. When a block ends you
+get a desktop notification and a chime, and a break can also cover the screen
+with a progress ring if you turn that on (off by default). Notifications are
+silenced while you focus, and the timer survives shell restarts, theme switches
+and suspend.
 
 Classic rhythm out of the box: **25 min focus · 5 min break · 15 min long break
 after every 4th block**. Everything is a setting.
@@ -16,6 +17,9 @@ after every 4th block**. Everything is a setting.
 - Big countdown with a progress line and session dots (one per focus block in
   the current set).
 - Start / Pause / Resume, skip the current block, add five minutes, stop.
+  A skipped focus block is not a finished session: it does not count towards
+  the set (so the long break is not moved on) or today's stats. The break that
+  follows is chosen from the count you have so far.
 - Focus presets (`15 · 25 · 50 · 90` min by default — right-click one to make
   it the default length).
 - Start a short or long break on demand.
@@ -23,11 +27,19 @@ after every 4th block**. Everything is a setting.
   screen, chime at the end of a block.
 - Today's sessions and focused minutes.
 
-## The break screen
+## The break
+
+A break is a desktop notification and a chime by default. When a focus block
+ends you get a chime and a "Focus complete" notification, and the break starts
+(or waits for you, see `autoStartBreak`). When the break ends you get a chime
+and a "Break over" notification. Nothing covers your screen.
+
+## The break screen (optional, off by default)
 
 ![Full-screen break screen](screenshots/break.png)
 
-When a focus block ends the break screen covers every monitor: phase title,
+Turn on the full-screen break screen with the popup toggle or the `overlay`
+setting. When a focus block ends it covers every monitor: phase title,
 a progress ring counting the break down, a short tip, the session dots, and
 buttons for Pause, +5 min, Skip break and Stop.
 
@@ -36,14 +48,17 @@ overlay for the rest of that break while the timer keeps running in the bar.
 `Space` (or `Enter`) skips the break and starts the next focus block. When the
 break is over the screen waits for you with a *Start 25 min focus* button
 (press `Enter`) rather than starting the next block on its own, so a break that
-runs long never silently eats into a focus block. Turn the break screen off
-entirely with the popup toggle or the `overlay` setting.
+runs long never silently eats into a focus block. Whether the break screen
+shows at all is set by the popup toggle or the `overlay` setting.
 
 ## Bar widget
 
-The bar shows a timer icon when idle, a brain icon plus the countdown during
-focus, a coffee cup plus the countdown during a break, and a thin progress
-hairline under the label while a block runs.
+The bar shows a timer icon when idle, the countdown alone while a block runs
+(the clock turns the accent colour during focus and dims while paused), the
+word `focus` or `break` when a block is waiting for you to start it, and a thin
+progress hairline under the label while a block runs. The vertical bar shows
+the icon instead. The tooltip adds today's total once a session has finished,
+for example `· today 3 sessions, 75 min`.
 
 | Action | Result |
 |---|---|
@@ -109,7 +124,9 @@ Changes apply immediately.
 | `longEvery` | `4` | Long break after every Nth focus block (`0` = never) |
 | `presets` | `[15, 25, 50, 90]` | Focus preset buttons in the popup |
 | `dnd` | `true` | Turn on Do Not Disturb during focus, restore afterwards |
-| `overlay` | `true` | Full-screen break screen |
+| `pauseOnIdle` | `true` | Pause a running focus block after `idleAfter` minutes without input, resume when you are back. Only a pause made this way resumes by itself. Breaks are never paused |
+| `idleAfter` | `5` | Minutes without input before a focus block pauses (`1`–`60`) |
+| `overlay` | `false` | Full-screen break screen (optional). Off: a break is a notification and chime only |
 | `overlayDim` | `0.93` | Darkness of the break screen (`0.3`–`1`) |
 | `sound` | `true` | Chime at the end of a block |
 | `notify` | `true` | Desktop notification at the end of a block |
@@ -118,6 +135,10 @@ Changes apply immediately.
 | `soundFocusEnd` | freedesktop `complete.oga` | Sound file played when focus ends |
 | `soundBreakEnd` | freedesktop `message.oga` | Sound file played when a break ends |
 | `staleAfter` | `30` | Minutes after which a restored, already-ended block is dropped |
+
+`overlay` changed default in this version: it is now off. If you already have
+`overlay` saved in `~/.config/omarchy/shell.json`, your saved value is kept.
+The new default only applies when the key is missing.
 
 Example entry:
 
@@ -158,6 +179,26 @@ that. `extras/omarchy-menu.jsonc` adds a **Pomodoro** entry to the Omarchy menu
 (`SUPER+SPACE`) with start / pause, skip, stop, focus lengths, breaks and
 ✓ toggles — merge it into `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
+## Idle and resume
+
+With `pauseOnIdle` on (the default), a focus block pauses itself when there has
+been no keyboard or pointer input for `idleAfter` minutes. When you move again
+it resumes from where it stopped. A pause you made yourself is never resumed
+for you. Breaks are not paused, so a break keeps counting down while you are
+away.
+
+Idle is detected with Quickshell's `IdleMonitor`. A playing video (an idle
+inhibitor) counts as not idle. Locking the screen is not detected by the
+plugin, so a manual lock without idle time does not pause the timer. Omarchy
+locks after idle (`idle.lock` in `shell.json`, 300 s by default), so a lock
+that follows idle pauses the timer as long as `idleAfter` is not longer than
+that lock timeout.
+
+If the shell was away for a while (suspend, a frozen session), a block that
+ended more than 2 minutes before the shell noticed still counts as finished,
+but the next step waits for you ("Focus complete" or "Break over" with a
+Start button) instead of starting a full-length countdown from now.
+
 ## IPC
 
 ```bash
@@ -172,8 +213,8 @@ omarchy-shell shell toggle techywilbur.pomodoro   # open / close the popup
 ## How it works, and what it touches
 
 - `Service.qml` is the engine: one instance per shell keeps the phase, an
-  absolute end time, the set counter and today's stats, and draws the break
-  screen on every monitor. `BarWidget.qml` (one per monitor) renders the bar
+  absolute end time, the set counter and today's stats, and draws the optional
+  break screen on every monitor. `BarWidget.qml` (one per monitor) renders the bar
   label and the popup. `PomoModel.js` is the pure logic.
 - Time is stored as a wall-clock end, so a block keeps counting correctly
   through suspend and shell restarts. State is written to
@@ -201,6 +242,7 @@ manifest.json        plugin manifest (kinds: service + bar-widget, settings sche
 Service.qml          engine, persistence, DND, break screen; IPC target `pomodoro`
 BarWidget.qml        bar label + popup; IPC target `techywilbur.pomodoro`
 PomoModel.js         pure logic: settings parsing, phases, formatting
+tests/               unit tests for PomoModel.js (node:test, no dependencies)
 pomo-state-read      bounded, non-following state reader (python3, stdlib only)
 uni-pomo             optional bash CLI
 extras/bindings.lua  optional Hyprland keybinds

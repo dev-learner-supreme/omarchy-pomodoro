@@ -13,4 +13,4 @@
   "pomodoro.break.long": {"icon":"󰅶","label":"Long break","action":"$HOME/.local/bin/uni-pomo long"},
   "pomodoro.panel": {"icon":"","label":"Open Panel","description":"Open the pomodoro popup in the bar","action":"$HOME/.local/bin/uni-pomo panel"},
   "pomodoro.dnd": {"icon":"󰂛","label":"Silence While Focusing","checked":"[[ \"$($HOME/.local/bin/uni-pomo get dnd)\" != false ]]","action":"bash -c 'v=$($HOME/.local/bin/uni-pomo get dnd); [[ $v == false ]] && $HOME/.local/bin/uni-pomo set dnd true || $HOME/.local/bin/uni-pomo set dnd false'"},
-  "pomodoro.overlay": {"icon":"󱄄","label":"Break Screen","checked":"[[ \"$($HOME/.local/bin/uni-pomo get overlay)\" != false ]]","action":"bash -c 'v=$($HOME/.local/bin/uni-pomo get overlay); [[ $v == false ]] && $HOME/.local/bin/uni-pomo set overlay true || $HOME/.local/bin/uni-pomo set overlay false'"}
+  "pomodoro.overlay": {"icon":"󱄄","label":"Break Screen","checked":"[[ \"$($HOME/.local/bin/uni-pomo get overlay)\" == true ]]","action":"bash -c 'v=$($HOME/.local/bin/uni-pomo get overlay); [[ $v == true ]] && $HOME/.local/bin/uni-pomo set overlay false || $HOME/.local/bin/uni-pomo set overlay true'"}
